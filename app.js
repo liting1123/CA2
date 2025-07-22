@@ -53,6 +53,24 @@ app.get('/menu', (req,res) => {
         })
         
     });
+
+// View each menu item by id
+app.get('/food/:id', (req, res) => {
+    const id = req.params.id;
+    const sql = 'SELECT * from menuItems WHERE idmenuItems = ?';
+           db.query(sql, [id],(error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('food', { food: results[0],
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
  
 app.use(flash());
  
