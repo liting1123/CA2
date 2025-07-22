@@ -36,6 +36,23 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
+// Menu 
+app.get('/menu', (req,res) => {
+    const sql = 'SELECT idmenuItems,name,image,price,category from menuItems';
+
+    db.query(sql, (error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('menu', { food: results,
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
  
 app.use(flash());
  
