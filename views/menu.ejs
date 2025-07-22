@@ -47,16 +47,17 @@
             <th width="100">Category</th>
           </tr>
       </thead>
-      <tbody>
+     <tbody>
   <% if (food && food.length > 0) { %>
-    <% food.forEach(item => { %>
+    <% for (let i = 0; i < food.length; i++) { %>
       <tr>
-        <td><%= item.name %></td>
-        <td><img src="/Images/<%= item.image %>" width="100"></td>
-        <td>$<%= item.price %></td>
-        <td><%= item.category %></td>
+        <td><a href="/food/<%= food[i].idmenuItems %>" >
+          <%= food[i].name %> </a></td>
+        <td><img src="/Images/<%= food[i].image %>" width="100"></td>
+        <td>$<%= food[i].price %></td>
+        <td><%= food[i].category %></td>
       </tr>
-    <% }) %>
+    <% } %>
   <% } else { %>
     <tr><td colspan="4">No food items available.</td></tr>
   <% } %>
