@@ -46,7 +46,7 @@ const checkAuthenticated = (req, res, next) => {
   if (req.session.user) {
     return next();
   } else {
-    req.flash('error', 'Please log in to food menu');
+    req.flash('error', 'Please log in to view !!!!!');
     res.redirect('/login');
   }
 };
