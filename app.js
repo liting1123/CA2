@@ -79,10 +79,10 @@ const validateRegistration = (req, res, next) => {
   }
 
  
-const strongPasswordRegex = /^(?=.{6,12}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{6,12}$/;
+const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]+$/;
   if (!strongPasswordRegex.test(password)) {
-    req.flash('error', 'Password must be 6–12 characters long and include at least one uppercase letter and one lowercase letter' +
-      'and one special character (!@#$%^&*).');
+    req.flash('error', 'Password must include at least one uppercase letter, one lowercase letter, ' +
+    'one digit, and one special character (!@#$%^&*).');
     req.flash('formData', req.body);
     return res.redirect('/register');
   }
