@@ -153,7 +153,12 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
  
- 
+app.get('/shopping', checkAuthenticated, (req, res) => {
+    connection.query('SELECT * FROM menuItems', (error, results) => {
+        if (error) throw error;
+        res.render('shopping', { user: req.session.user, menuItems: results });
+      });
+}); 
 // Starting the server
 const PORT = 3000;
 app.listen(PORT, () => {
