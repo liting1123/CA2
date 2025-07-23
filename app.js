@@ -36,6 +36,41 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
+// Menu 
+app.get('/menu', (req,res) => {
+    const sql = 'SELECT idmenuItems,name,image,price,category from menuItems';
+
+    db.query(sql, (error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('menu', { food: results,
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
+
+// View each menu item by id
+app.get('/food/:id', (req, res) => {
+    const id = req.params.id;
+    const sql = 'SELECT * from menuItems WHERE idmenuItems = ?';
+           db.query(sql, [id],(error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('food', { food: results[0],
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
  
 app.use(flash());
  
