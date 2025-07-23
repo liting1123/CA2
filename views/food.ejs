@@ -25,6 +25,11 @@
               <a class="nav-link" href="/admin">Admin</a>
             </li>
             <% } %>
+            <% if (user && user.role === 'user') { %>
+            <li class="nav-item">
+              <a class="nav-link" href="/menu">Menu/a>
+            </li>
+            <% } %>
             <li class="nav-item">
               <a class="nav-link" href="/logout">Logout</a>
             </li>
@@ -39,9 +44,10 @@
       <br>
       <% if (food) { %>
         <div class="card mx-auto" style="width: 50%;">
-          <b>Image:</b><br><img src="/Images/<%= food.image %>"class="card-img-top"  alt="<%= food.name %>">
+          <br><img src="/Images/<%= food.image %>"class="card-img-top"  alt="<%= food.name %>">
           <div class="card-body">
           <h2 class="card-title"><b>Name:</b><br> <%= food.name %></h2>
+          <p class="card-text"><b>Quantity:</b><br><%= food.quantity %></p>
           <p class="card-text"><b>Price:</b><br>$<%= food.price %></p>
           <p class="card-text"><b>Category:</b><br><%= food.category %></p>
         </div>

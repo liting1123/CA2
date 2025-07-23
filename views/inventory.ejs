@@ -1,4 +1,4 @@
-<!-- menu.ejs -->
+<!-- inventory.ejs -->
 
 <!DOCTYPE html>
 <html>
@@ -18,16 +18,11 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="/dashboard">Dashboard</a>
+              <a class="nav-link active" aria-current="page" href="/additem">add</a>
             </li>
             <% if (user && user.role === 'admin') { %>
             <li class="nav-item">
-              <a class="nav-link" href="/admin">Admin</a>
-            </li>
-            <% } %>
-            <% if (user && user.role === 'user') { %>
-            <li class="nav-item">
-              <a class="nav-link" href="/menu">Menu</a>
+              <a class="nav-link" href="/inventory">inventory</a>
             </li>
             <% } %>
             <li class="nav-item">
@@ -40,7 +35,7 @@
     
 <div class="container">
     <br>
-    <div class="text-center"><h2>Menu</h2></div>
+    <div class="text-center"><h2>Inventory</h2></div>
     <br>
     <table class="table table-hover small text-center">
       <thead>
@@ -50,7 +45,8 @@
             <th width="100">Quantity</th>
             <th width="100">Price</th>
             <th width="100">Category</th>
-            <th width="50">Add</th>
+            <th width="50">Edit</th>
+            <th width="50">Delete</th>
           </tr>
       </thead>
      <tbody>
@@ -63,16 +59,12 @@
         <td><%= food[i].quantity %></td>
         <td>$<%= food[i].price %></td>
         <td><%= food[i].category %></td>
-        <td>
-          <form action="/add-to-cart/<%= food[i].idmenuItems%>" method="POST">
-                  <input type="hidden" name="quantity" id="quantity-<%= food[i]. idmenuItems %>" value="1">
-                  <button type="submit" class="btn btn-primary mt-3">Buy</button>
-          </form>
-        </td>
+        <td><a href="/editInventory/"><%= 'Edit' %></td>
+        <td><a   
       </tr>
     <% } %>
   <% } else { %>
-    <tr><td colspan="6">No food items available.</td></tr>
+    <tr><td colspan="7">food not available.</td></tr>
   <% } %>
 </tbody>
     </table>

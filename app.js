@@ -15,8 +15,7 @@ const db = mysql.createConnection({
     database: 'CA2_sumtopwar',
     port: 3307
 });
- 
- 
+
 db.connect((err) => {
     if (err) {
         throw err;
@@ -36,42 +35,6 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 24 * 7 }
 }));
 
-// Menu 
-app.get('/menu', (req,res) => {
-    const sql = 'SELECT idmenuItems,name,image,price,category from menuItems';
-
-    db.query(sql, (error, results) => {
-        if (error) {
-            console.error('Error fetching menu items:' ,error);
-            return res.status(500).send('Error fetching menu items');
-            
-            }
-        res.render('menu', { food: results,
-          user: req.session.user}
-          
-        )
-        })
-        
-    });
-
-// View each menu item by id
-app.get('/food/:id', (req, res) => {
-    const id = req.params.id;
-    const sql = 'SELECT * from menuItems WHERE idmenuItems = ?';
-           db.query(sql, [id],(error, results) => {
-        if (error) {
-            console.error('Error fetching menu items:' ,error);
-            return res.status(500).send('Error fetching menu items');
-            
-            }
-        res.render('food', { food: results[0],
-          user: req.session.user}
-          
-        )
-        })
-        
-    });
- 
 app.use(flash());
  
 // Setting up EJS
@@ -85,7 +48,6 @@ const checkAuthenticated = (req, res, next) => {
     res.redirect('/login');
   }
 };
- 
  
 const checkAdmin = (req, res, next) => {
   if (req.session.user.role === 'admin') {
@@ -113,7 +75,6 @@ const validateRegistration = (req, res, next) => {
     return res.status(400).send('All fields are required.');
   }
 
- 
 const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]+$/;
   if (!strongPasswordRegex.test(password)) {
     req.flash('error', 'Password must include at least one uppercase letter, one lowercase letter, ' +
@@ -123,7 +84,6 @@ const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Z
   }
   next();
   }
- 
  
 app.post('/register',validateRegistration, (req, res) => {
     const { username, email, password, address, contact, role} = req.body;
@@ -188,12 +148,120 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
  
-app.get('/shopping', checkAuthenticated, (req, res) => {
-    connection.query('SELECT * FROM menuItems', (error, results) => {
-        if (error) throw error;
-        res.render('shopping', { user: req.session.user, menuItems: results });
-      });
-}); 
+// Menu 
+app.get('/menu', (req,res) => {
+    const sql = 'SELECT idmenuItems,name,image,quantity,price,category from menuItems';
+    db.query(sql, (error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('menu', { food: results,
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
+  
+  // inventory
+app.get('/inventory', (req,res) => {
+    const sql = 'SELECT idmenuItems,name,image,quantity,price,category from menuItems';
+    db.query(sql, (error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('inventory', { food: results,
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
+  
+
+// View each menu item by id
+app.get('/food/:id', (req, res) => {
+    const id = req.params.id;
+    const sql = 'SELECT * from menuItems WHERE idmenuItems = ?';
+           db.query(sql, [id],(error, results) => {
+        if (error) {
+            console.error('Error fetching menu items:' ,error);
+            return res.status(500).send('Error fetching menu items');
+            
+            }
+        res.render('food', { food: results[0],
+          user: req.session.user}
+          
+        )
+        })
+        
+    });
+
+  app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
+      const idmenuItems = parseInt(req.params.id);
+      const quantity = parseInt(req.body.quantity) || 1;
+
+      db.query('SELECT * FROM menuItems WHERE idmenuItems = ?', [idmenuItems], (error, results) => {
+          if (error) throw error;
+
+          if (results.length > 0) {
+              const menuItems = results[0];
+
+              // Initialize cart in session if not exists
+              if (!req.session.cart) {
+                  req.session.cart = [];
+              }
+
+              // Check if food already in cart
+              const existingItem = req.session.cart.find(item => item.idmenuItems === idmenuItems);
+              if (existingItem) {
+                  existingItem.quantity += quantity;
+              } else {
+                  req.session.cart.push({
+                      idmenuItems: menuItems.idmenuItems,
+                      name: menuItems.name,
+                      price: menuItems.price,
+                      quantity: quantity,
+                      image: menuItems.image
+                  });
+              }
+
+            res.redirect('/cart');
+        } else {
+            res.status(404).send("Product not found");
+        }
+    });
+});
+
+app.get('/cart', checkAuthenticated, (req, res) => {
+    const cart = req.session.cart || [];
+    res.render('cart', { cart, user: req.session.user });
+});
+
+app.get('/editInventory/:id',(req,res) => {
+    const idorder = req.params.id;
+    const sql = 'SELECT * FROM order WHERE idorder = ?';
+
+    connection.query( sql , [idorder], (error, results) => {
+        if (error) {
+            console.error('Database query error:', error.message);
+            return res.status(500).send('Error retrieving product by ID');
+        }
+
+        if (results.length > 0 ) {
+            res.render('editInventory', { order: results[0] });
+        } else {
+            res.status(404).send('Order not found');
+        }
+    });
+});
+
+
+
 // Starting the server
 const PORT = 3000;
 app.listen(PORT, () => {

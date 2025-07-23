@@ -1,3 +1,4 @@
+<!-- cart.ejs -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -20,12 +21,7 @@
             </li>
             <% if (user && user.role === 'admin') { %>
             <li class="nav-item">
-              <a class="nav-link" href="/inventory">inventory</a>
-            </li>
-            <% } %>
-            <% if (user && user.role === 'user') { %>
-            <li class="nav-item">
-              <a class="nav-link" href="/menu">Menu</a>
+              <a class="nav-link" href="/admin">Admin</a>
             </li>
             <% } %>
             <li class="nav-item">
@@ -36,28 +32,41 @@
       </div>
     </nav>
 
-    <div class="container py-5">
-      <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="text-center">
-              <h2 class="title mb-4">Welcome, <span class="text-primary"><%- user.username %></span>!</h2>
-              <h5 class="mb-3 text-muted">Role: <%= user.role.charAt(0).toUpperCase() + user.role.slice(1) %></h5>
-              <hr>
-              <% if (user.role === 'admin') { %>
-                <a href="/admin" class="btn btn-outline-primary me-2">Go to Admin Dashboard</a>
-              <% } %>
-              <a href="/logout" class="btn btn-success">Logout</a>
-            </div>
-          </div>
-      </div>
-    </div>
+  <!-- Cart Content -->
+  <div class="container">
+    <h2 class="mt-4">Food Order</h2>
+    <% if (cart.length === 0) { %>
+      <p>Your order is empty.</p>
+    <% } else { %>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% let total = 0; %>
+          <% for (let i = 0; i < cart.length; i++) { %>
+            <tr>
+                <td><%= cart[i].name %></td>
+                <td><img src="/images/<%= cart[i].image %>" width="80" class="img-thumbnail"></td>
+                <td><%= cart[i].quantity %></td>
+                <td>$<%= (cart[i].price * cart[i].quantity).toFixed(2) %></td>
+            </tr>
+            <% total += cart[i].price * cart[i].quantity; %>
+          <% }; %>
+        </tbody>
+      </table>
+      <h4>Total: $<%= total.toFixed(2) %></h4>
+      <a href="/deleteOrder/<%= order[i].idorder %>" onclick="return confirm('Are you sure you want to delete this Order?')">Delete</a>
 
-    <footer class="footer fixed-bottom py-3 bg-white border-top">
-      <div class="container text-center">
-        <span class="text-muted">&copy; 2025 Foodiess Service</span>
+      <div class="mt-4">
+        <a href="/menu" class="btn btn-secondary">Back to Menu</a>
       </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <% } %>
+  </div>
 </body>
 </html>
