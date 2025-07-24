@@ -15,14 +15,14 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="/addInventory">Add</a>
-            </li>
-            
+            <% if (user && user.role === 'admin') { %>
             <li class="nav-item">
               <a class="nav-link" href="/inventory">Inventory</a>
             </li>
-            
+            <li class="nav-item">
+              <a class="nav-link active" aria-current="page" href="/addInventory">Add</a>
+            </li>
+            <% } %> 
             <li class="nav-item">
               <a class="nav-link" href="/logout">Logout</a>
             </li>
