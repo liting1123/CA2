@@ -388,11 +388,11 @@ app.get('/editInventory/:id',(req,res) => {
 
 app.get('/deleteInventory/:id', (req,res) => {
     const idmenuItems = req.params.id;
-    const sql = 'DELETE FROM menu WHERE product = ?';
-    db.query( sql, [productId], (error, results) => {
+    const sql = 'DELETE FROM menuItems WHERE idmenuItems = ?';
+    db.query( sql, [idmenuItems], (error, results) => {
         if (error) {
-            console.error("Error deleting product:", error);
-            res.status(500).send('Error deleting product');
+            console.error("Error deleting inventory:", error);
+            res.status(500).send('Error deleting inventory');
         } else {
             res.redirect('/');
         }
