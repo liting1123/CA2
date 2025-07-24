@@ -1,4 +1,3 @@
-<!-- cart.ejs -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -32,7 +31,6 @@
       </div>
     </nav>
 
-  <!-- Cart Content -->
   <div class="container">
     <h2 class="mt-4">Food Cart</h2>
     <% if (cart.length === 0) { %>
@@ -59,24 +57,36 @@
                 <td>$<%= cart[i].price %></td>
                 <td>$<%= (cart[i].price * cart[i].quantity).toFixed(2) %></td>
                 <td>
-                  <a href="/cart<%= cart[i].idmenuitems %>" onclick="return confirm('Are you sure you want to remove this item?')">Delete</a>
+                    <form action="/deleteCart/<%= cart[i].idmenuItems %>" method="POST" onsubmit="return confirm('Are you sure you want to remove this item?');">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
                 </td>
             </tr>
             <% total += cart[i].price * cart[i].quantity; %>
           <% }; %>
         </tbody>
       </table>
-      <h4>Total: $<%= total.toFixed(2) %></h4>
-      <div class="mt-4">
-        <a href="/menu" class="btn btn-secondary">Back to Menu</a>
-        <form action="/placeOrder" method="POST">
-            <input type="hidden" name="totalAmount" value="<%= total.toFixed(2) %>">
-            <% cart.forEach(item => { %>
-                <input type="hidden" name="cartItems[]" value="<%= JSON.stringify(item) %>">
-            <% }); %>
-            <button type="submit" class="btn btn-success btn-lg">Place Order</button>
-        </form>
-      </div>
+      <div class="row justify-content-end mt-4">
+      <div class="col-md-5 col-lg-4">
+        <div class="cart-summary text-end">
+          <h4 class="mb-3">Cart Total: <span class="text-success">$<%= total.toFixed(2) %></span></h4>
+            <div class="row g-2"> 
+              <div class="col-6"> 
+                <a href="/menu" class="btn btn-secondary btn-lg w-100">
+                  <i class="me-2"></i>Back to Menu</a>
+              </div>
+              <div class="col-6"> <form action="/placeOrder" method="POST">
+                <input type="hidden" name="totalAmount" value="<%= total.toFixed(2) %>">
+                <% cart.forEach(item => { %>
+                    <input type="hidden" name="cartItems[]" value="<%= JSON.stringify(item) %>">
+                <% }); %>
+                <button type="submit" class="btn btn-success btn-lg w-100"><i class="me-2"></i>Place Order</button>
+                </form>
+              </div>
+            </div>
+        </div>
+    </div>
+</div>
     <% } %>
   </div>
 </body>

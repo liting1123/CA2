@@ -258,107 +258,167 @@ app.get('/cart', checkAuthenticated, (req, res) => {
 });
 
 
-app.post('/placeOrder', checkAuthenticated, async (req, res) => {
-    const iduser = req.session.user ? req.session.user.iduser : null; // Safely get iduser
-    const totalAmount = parseFloat(req.body.totalAmount);
-    const cartItems = req.body.cartItems; 
-
-    if (!iduser) {
-        req.flash('error', 'You must be logged in to place an order.'); 
-        return res.redirect('/login');
-    }
-
-    if (!cartItems || cartItems.length === 0) {
-        req.flash('error', 'Your cart is empty. Please add items before placing an order.'); 
-        return res.redirect('/cart'); // Redirect to cart, not orderConfirmation for empty cart
-    }
-
-    let connection; // Declare connection outside try for finally block access
+app.post('/placeOrder', async (req, res) => {
+    let rawCartItems = req.body.cartItems;
+    let cartItemsData = [];
+    let connection;
 
     try {
-        connection = await db.promise().getConnection(); 
-        await connection.beginTransaction();
-
-        // 1. Insert into the `order` table
-        const orderQuery = 'INSERT INTO `order` (iduser, orderDate, totalPrice, status) VALUES (?, NOW(), ?, ?)';
-        const [orderResult] = await connection.execute(orderQuery, [iduser, totalAmount, 'pending']);
-        const idorder = orderResult.insertId; 
-
-        // 2. Insert into the `order_items` table for each item in the cart
-        const orderItemQuery = 'INSERT INTO orderItems (idorder, idmenuItems, name, image, quantity) VALUES (?, ?, ?, ?, ?)';
-
-        const itemsToProcess = Array.isArray(cartItems) ? cartItems : [cartItems];
-
-        for (const itemString of itemsToProcess) {
-            const item = JSON.parse(itemString); // Parse each item string back to an object
-            await connection.execute(orderItemQuery, [idorder, item.idmenuItems, item.name, item.image, item.quantity]);
+        // Step 1: Parse and validate raw cart data from the request body
+        if (!rawCartItems || (Array.isArray(rawCartItems) && rawCartItems.length === 0)) {
+            req.flash('error', 'Your cart is empty. Please add items before placing an order.');
+            return res.redirect('/cart');
         }
 
-        await connection.commit(); 
+        // Ensure rawCartItems is an array for consistent processing
+        if (!Array.isArray(rawCartItems)) {
+            rawCartItems = [rawCartItems]; // Convert single item to an array
+        }
 
-        req.session.cart = []; // Clear the cart from the session
-        req.flash('success', `Order #${idorder} placed successfully!`); 
-        res.redirect('/orderConfirmation/' + idorder); 
+        for (const itemString of rawCartItems) {
+            if (typeof itemString !== 'string' || itemString.trim() === '') {
+                continue;
+            }
+            cartItemsData.push(JSON.parse(itemString));
+        }
+
+        if (cartItemsData.length === 0) {
+            req.flash('error', 'No valid items found in your cart after processing.');
+            return res.redirect('/cart');
+        }
+
+        const userId = req.session.user ? req.session.user.iduser : null;
+        let totalAmount = 0;
+
+        connection = await db.promise().getConnection();
+        await connection.beginTransaction();
+
+        // Step 3: Validate each cart item against the database and calculate total
+        const validatedCartItems = [];
+        for (const item of cartItemsData) {
+            const [productRows] = await connection.execute(
+                'SELECT idmenuItems, name, price, image FROM menuItems WHERE idmenuItems = ?',
+                [item.idmenuitems]
+            );
+
+            if (productRows.length === 0) {
+                throw new Error(`Product with ID ${item.idmenuitems} not found in menu.`);
+            }
+
+            const product = productRows[0];
+            const quantity = parseInt(item.quantity, 10);
+
+            if (isNaN(quantity) || quantity <= 0) {
+                throw new Error(`Invalid quantity for product ${product.name}.`);
+            }
+
+            validatedCartItems.push({
+                idmenuItems: product.idmenuItems,
+                name: product.name,
+                image: product.image,
+                quantity: quantity,
+                price: product.price // Use database price for total and storage
+            });
+            totalAmount += quantity * product.price;
+        }
+
+        // Step 4: Insert into `orders` table
+        const insertOrderSql = `
+            INSERT INTO orders (iduser, total_amount, order_date, status)
+            VALUES (?, ?, NOW(), 'pending')
+        `;
+        const [orderResult] = await connection.execute(insertOrderSql, [userId, totalAmount]);
+        const orderId = orderResult.insertId;
+
+        // Step 5: Insert each item into `orderItems` table
+        // REMINDER: Ensure 'price_at_time_of_order' column exists in your orderItems table.
+        const insertOrderItemSql = `
+            INSERT INTO orderItems (idorder, idmenuItems, name, image, quantity)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+
+        for (const item of validatedCartItems) {
+            await connection.execute(insertOrderItemSql, [
+                orderId,
+                item.idmenuItems,
+                item.name,
+                item.image,
+                item.quantity,
+                item.price
+            ]);
+        }
+
+        await connection.commit();
+        req.session.cart = [];
+        req.flash('success', 'Your order has been placed successfully!');
+        res.redirect(`/orderConfirmation/${orderId}`);
 
     } catch (error) {
         if (connection) {
-            await connection.rollback(); 
+            await connection.rollback();
         }
-        console.error('Error placing order:', error);
-        req.flash('error', 'There was an error placing your order. Please try again.'); 
+        console.error('Error placing order:', error.message); 
+        req.flash('error', `There was an error placing your order: ${error.message}. Please try again.`);
         res.redirect('/cart');
     } finally {
         if (connection) {
-            connection.release(); 
+            connection.release();
         }
     }
 });
 
-//OrderConfirmation
+//Order Confirmation
 app.get('/orderConfirmation/:idorder', checkAuthenticated, async (req, res) => {
     const idorder = req.params.idorder;
-    const iduser = req.session.user ? req.session.user.iduser : null; 
+    const iduser = req.session.user ? req.session.user.iduser : null;
 
-    let connection; 
-
+    let connection;
     try {
-        connection = await db.promise().getConnection(); 
+        connection = await db.promise().getConnection();
 
-        // Fetch order details for the logged-in user
-
-        const [orderRows] = await connection.execute('SELECT * FROM order WHERE idorder = ? AND iduser = ?', [idorder, iduser]);
+        const [orderRows] = await connection.execute('SELECT * FROM orders WHERE idorder = ? AND iduser = ?', [idorder, iduser]);
         const order = orderRows[0];
 
         if (!order) {
-            req.flash('error', 'Order not found or you do not have permission to view it.'); // Changed to 'error'
+            req.flash('error', 'Order not found or you do not have permission to view it.');
             return res.redirect('/dashboard');
         }
 
-        // Fetch items for this order and JOIN with menuItems to get current prices
         const [itemRows] = await connection.execute(
-            'SELECT oi.idorderItems, oi.idorder, oi.idmenuItems, oi.name, oi.image, oi.quantity, m.price ' +
-            'FROM orderItems oi JOIN menuItems m ON oi.idmenuItems = m.idmenuItems ' + // Corrected JOIN condition
-            'WHERE oi.idorder = ?',
+            `SELECT
+                oi.idorderItems,
+                oi.idorder,
+                oi.idmenuItems,
+                oi.name AS product_name,
+                oi.image AS image_url,
+                oi.quantity,
+                oi.price_at_time_of_order AS item_price -- Assumed column for historical price
+             FROM orderItems oi
+             WHERE oi.idorder = ?`,
             [idorder]
         );
         order.items = itemRows;
-        res.render('orderConfirmation', { user: req.session.user, order: order, messages: req.flash('success') }); // Pass success messages
+
+        res.render('orderConfirmation', {
+            user: req.session.user,
+            order: order,
+            successMessages: req.flash('success'),
+            errorMessages: req.flash('error')
+        });
     } catch (error) {
         console.error('Error fetching order confirmation:', error);
-        req.flash('error', 'Could not retrieve order details.'); // Changed to 'error'
-        res.redirect('/menu');
+        req.flash('error', 'Could not retrieve order details. Please try again later.');
+        res.redirect('/dashboard');
     } finally {
-        if (connection) connection.release(); // Release the connection
+        if (connection) connection.release();
     }
 });
 
-// This route is duplicated, keeping only one instance for clarity.
 app.get('/addInventory', checkAuthenticated, checkAdmin, (req, res) => {
     res.render('addInventory', {user: req.session.user } ); 
 });
 
 app.post('/addInventory', upload.single('Images'), (req, res) => {
-    // Extract inventory data from the request body
     const { name, quantity, price, category } = req.body;
     let image;
     if (req.file) {
@@ -368,7 +428,6 @@ app.post('/addInventory', upload.single('Images'), (req, res) => {
     }
 
     const sql = 'INSERT INTO menuItems (name, image, quantity, price, category) VALUES (?, ?, ?, ?,?)';
-    // Insert the new menu into the database
     db.query(sql, [name, image, quantity, price, category], (error, results) => {
         if (error) {
             console.error("Error adding menu to database:", error);
