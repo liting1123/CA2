@@ -1,12 +1,21 @@
 const express = require('express');
 const mysql = require('mysql2');
-
+const multer = require('multer');
 const session = require('express-session');
- 
 const flash = require('connect-flash');
- 
 const app = express();
- 
+
+// Set up multer for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'public/images'); // Directory to save uploaded files
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname); 
+    }
+});
+
+const upload = multer({ storage: storage });
 // Database connection
 const db = mysql.createConnection({
     host: 'glpfrl.h.filess.io',
@@ -253,11 +262,11 @@ app.post('/placeOrder', checkAuthenticated, async (req, res) => {
 
     if (!cartItems || cartItems.length === 0) {
         req.flash('error_msg', 'Your cart is empty. Please add items before placing an order.');
-        return res.redirect('/cart');
+        return res.redirect('/orderConfirmation');
     }
 
     else{
-      return res.redirect('/orderConfirmation');
+      return res.redirect('/cart');
     }
 
     try {
@@ -331,24 +340,64 @@ app.get('/orderConfirmation/:idorder', checkAuthenticated, async (req, res) => {
     }
 });
 
+app.get('/addInventory', checkAuthenticated, checkAdmin, (req, res) => {
+    res.render('addInventory', {user: req.session.user } ); 
+});
+
+app.post('/addInventory', upload.single('Images'),  (req, res) => {
+    // Extract product data from the request body
+    const { name, quantity, price,category} = req.body;
+    let image;
+    if (req.file) {
+        image = req.file.filename; // Save only the filename
+    } else {
+        image = null;
+    }
+
+    const sql = 'INSERT INTO menuItems (name, quantity, price, image,category) VALUES (?, ?, ?, ?,?)';
+    // Insert the new product into the database
+    db.query(sql , [name, quantity, price, image,category], (error, results) => {
+        if (error) {
+            // Handle any error that occurs during the database operation
+            console.error("Error adding menu:", error);
+            res.status(500).send('Error adding menu');
+        } else {
+            // Send a success response
+            res.redirect('/inventory');
+        }
+    });
+});
+
 app.get('/editInventory/:id',(req,res) => {
     const idmenuItems = req.params.id;
-    const sql = 'SELECT * FROM menu WHERE idmenuItems = ?';
+    const sql = 'SELECT * FROM menuItems WHERE idmenuItems = ?';
 
-    connection.query( sql , [idmenuItems], (error, results) => {
+    db.query( sql , [idmenuItems], (error, results) => {
         if (error) {
             console.error('Database query error:', error.message);
-            return res.status(500).send('Error retrieving product by ID');
+            return res.status(500).send('Error retrieving Food by ID');
         }
 
         if (results.length > 0 ) {
-            res.render('editInventory', { menu: results[0] });
+            res.render('editInventory', { menuItems: results[0] });
         } else {
             res.status(404).send('Order not found');
         }
     });
 });
 
+app.get('/deleteInventory/:id', (req,res) => {
+    const idmenuItems = req.params.id;
+    const sql = 'DELETE FROM menu WHERE product = ?';
+    db.query( sql, [productId], (error, results) => {
+        if (error) {
+            console.error("Error deleting product:", error);
+            res.status(500).send('Error deleting product');
+        } else {
+            res.redirect('/');
+        }
+    })
+})
 
 
 // Starting the server

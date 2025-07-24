@@ -18,13 +18,13 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="/additem">add</a>
+              <a class="nav-link active" aria-current="page" href="/addInventory">Add</a>
             </li>
             <% if (user && user.role === 'admin') { %>
             <li class="nav-item">
               <a class="nav-link" href="/inventory">Inventory</a>
             </li>
-            <% } %>
+            
             <li class="nav-item">
               <a class="nav-link" href="/logout">Logout</a>
             </li>
@@ -59,8 +59,8 @@
         <td><%= food[i].quantity %></td>
         <td>$<%= food[i].price %></td>
         <td><%= food[i].category %></td>
-        <td><a href="/editInventory/"><%= 'Edit' %></td>
-        <td> <a href="/deleteInventory/<%= food[i].idmenuItems %>" onclick="return confirm('Are you sure you want to delete this Order?')">Delete</a>
+        <td><a href="/editInventory/<%= food[i].idmenuItems%>"><%= 'Edit' %></td>
+        <td> <a href="/deleteInventory/<%= food[i].idmenuItems %>" onclick="return confirm('Are you sure you want to delete this Food?')">Delete</a>
       </tr>
     <% } %>
   <% } else { %>

@@ -42,6 +42,12 @@
     <br>
     <div class="text-center"><h2>Menu</h2></div>
     <br>
+    <form class="mb-4" method="GET" action="/menu">
+      <div class="input-group">
+        <input type="text" class="form-control" name="category" placeholder="Seach by category..." value="<%= typeof category !== 'undefined' ? category : '' %>">
+        <button type="submit" class="btn btn-success">Search</button>
+      </div>
+    </form>
     <table class="table table-hover small text-center">
       <thead>
           <tr>
