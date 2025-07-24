@@ -385,16 +385,8 @@ app.get('/orderConfirmation/:idorder', checkAuthenticated, async (req, res) => {
         }
 
         const [itemRows] = await connection.execute(
-            `SELECT
-                oi.idorderItems,
-                oi.idorder,
-                oi.idmenuItems,
-                oi.name AS product_name,
-                oi.image AS image_url,
-                oi.quantity,
-                oi.price_at_time_of_order AS item_price -- Assumed column for historical price
-             FROM orderItems oi
-             WHERE oi.idorder = ?`,
+            `SELECT oi.idorderItems, oi.idorder, oi.idmenuItems, oi.name AS product_name, oi.image AS image_url, oi.quantity
+             FROM orderItems oi WHERE oi.idorder = ?`,
             [idorder]
         );
         order.items = itemRows;
