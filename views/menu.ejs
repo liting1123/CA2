@@ -47,9 +47,9 @@
           <tr>
             <th width="100">Name</th>
             <th width="100">Image</th>
-            <th width="100">Quantity</th>
             <th width="100">Price</th>
             <th width="100">Category</th>
+             <th width="100">Quantity</th>
             <th width="50">Add</th>
           </tr>
       </thead>
@@ -60,9 +60,17 @@
         <td><a href="/food/<%= food[i].idmenuItems %>" >
           <%= food[i].name %> </a></td>
         <td><img src="/Images/<%= food[i].image %>" width="100"></td>
-        <td><%= food[i].quantity %></td>
         <td>$<%= food[i].price %></td>
         <td><%= food[i].category %></td>
+        <td>
+          <form action="/increaseQuantity/<%= food.IdmenuItems %>" method="POST">
+          <%= food.quantity %>
+            <button type="submit">+</button>
+          <form action="/decreaseQuantity/<%= food.IdmenuItems %>" method="POST">
+          <%= food.quantity %>
+            <button type="submit">-</button>
+          </form>
+      </td>
         <td>
           <form action="/add-to-cart/<%= food[i].idmenuItems%>" method="POST">
                   <input type="hidden" name="quantity" id="quantity-<%= food[i]. idmenuItems %>" value="1">

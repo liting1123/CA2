@@ -241,19 +241,108 @@ app.get('/cart', checkAuthenticated, (req, res) => {
     const cart = req.session.cart || [];
     res.render('cart', { cart, user: req.session.user });
 });
+app.post('/placeOrder', checkAuthenticated, async (req, res) => {
+    const iduser = req.session.id; 
+    const totalAmount = parseFloat(req.body.totalAmount);
+    const cartItems = req.body.cartItems;
+
+    if (!iduser) { // Check for iduser
+        req.flash('error_msg', 'You must be logged in to place an order.');
+        return res.redirect('/login');
+    }
+
+    if (!cartItems || cartItems.length === 0) {
+        req.flash('error_msg', 'Your cart is empty. Please add items before placing an order.');
+        return res.redirect('/cart');
+    }
+
+    else{
+      return res.redirect('/orderConfirmation');
+    }
+
+    try {
+        await db.beginTransaction();
+
+        // 1. Insert into the `order` table
+        const orderQuery = 'INSERT INTO order (iduser, orderDate, totalPrice, status) VALUES (?, NOW(), ?, ?)';
+        const [orderResult] = await db.promise().execute(orderQuery, [iduser, totalAmount, 'pending']);
+        const idorder = orderResult.insertId; 
+
+        // 2. Insert into the `order_items` table for each item in the cart
+        const orderItemQuery = 'INSERT INTO orderItems (idorder, idmenuItems, name, image, quantity) VALUES (?, ?, ?, ?, ?)';
+
+        const itemsToProcess = Array.isArray(cartItems) ? cartItems : [cartItems];
+
+        for (const itemString of itemsToProcess) {
+            const item = JSON.parse(itemString);
+            // Use idorder here
+            await db.promise().execute(orderItemQuery, [idorder, item.idmenuItems, item.name, item.image, item.quantity]);
+        }
+
+        await db.promise().commit();
+
+        req.session.cart = []; // Clear the cart from the session
+        req.flash('success_msg', `Order #${idorder} placed successfully!`); // Use idorder
+        res.redirect('/orderConfirmation/' + idorder); // Use idorder and correct route name
+
+    } catch (error) {
+        if (connection) {
+            await connection.rollback();
+        }
+        console.error('Error placing order:', error);
+        req.flash('error_msg', 'There was an error placing your order. Please try again.');
+        res.redirect('/cart');
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
+
+//OrderConfirmatiom
+app.get('/orderConfirmation/:idorder', checkAuthenticated, async (req, res) => {
+    const idorder = req.params.idorder;
+    const iduser = req.session.iduser; 
+
+    try {
+        // Fetch order details for the logged-in user
+        const [orderRows] = await connection.execute('SELECT * FROM order WHERE idorder = ? AND iduser = ?', [idorder, iduser]);
+        const order = orderRows[0];
+
+        if (!order) {
+            req.flash('error_msg', 'Order not found or you do not have permission to view it.');
+            return res.redirect('/dashboard');
+        }
+
+        // Fetch items for this order and JOIN with menuItems to get current prices
+        const [itemRows] = await connection.execute(
+            'SELECT oi.idorderItems, oi.idorder, oi.idmenuItems, oi.name, oi.image, oi.quantity, m.price ' +
+            'FROM order_items oi JOIN menuItems m ON oi.idmenuItems = m.idmenuItems ' + // Corrected JOIN condition to oi.idmenuItems = m.idmenuItems
+            'WHERE oi.idorder = ?',
+            [idorder] // Use idorder here
+        );
+        order.items = itemRows;res.render('orderConfirmation', { user: req.session.user, order: order });
+    } catch (error) {
+        console.error('Error fetching order confirmation:', error);
+        req.flash('error_msg', 'Could not retrieve order details.');
+        res.redirect('/menu');
+    } finally {
+        if (connection) connection.release();
+    }
+});
 
 app.get('/editInventory/:id',(req,res) => {
-    const idorder = req.params.id;
-    const sql = 'SELECT * FROM order WHERE idorder = ?';
+    const idmenuItems = req.params.id;
+    const sql = 'SELECT * FROM menu WHERE idmenuItems = ?';
 
-    connection.query( sql , [idorder], (error, results) => {
+    connection.query( sql , [idmenuItems], (error, results) => {
         if (error) {
             console.error('Database query error:', error.message);
             return res.status(500).send('Error retrieving product by ID');
         }
 
         if (results.length > 0 ) {
-            res.render('editInventory', { order: results[0] });
+            res.render('editInventory', { menu: results[0] });
         } else {
             res.status(404).send('Order not found');
         }
