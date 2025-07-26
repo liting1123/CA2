@@ -62,20 +62,17 @@ const checkAdmin = (req, res, next) => {
     if (req.session.user && req.session.user.role === 'admin') { 
         return next();
     } else {
-        req.flash('error', 'Sorry ,Access denied!');
+        req.flash('error', 'Sorry, Access denied!');
         res.redirect('/dashboard');
     }
 };
  
-
 app.get('/', (req, res) => {
     res.render('index', { user: req.session.user, messages: req.flash('success')});
 });
- 
 app.get('/register', (req, res) => {
     res.render('register', { messages: req.flash('error'), formData: req.flash('formData')[0] });
 });
- 
  
 const validateRegistration = (req, res, next) => {
     const { username, email, password, address, contact } = req.body;
@@ -96,7 +93,6 @@ const validateRegistration = (req, res, next) => {
  
 app.post('/register',validateRegistration, (req, res) => {
     const { username, email, password, address, contact, role} = req.body;
- 
     const sql = 'INSERT INTO user (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
     db.query(sql, [username, email, password, address, contact, role], (err, result) => {
         if (err) {
@@ -119,7 +115,6 @@ app.get('/login', (req, res) => {
  
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
- 
     if (!email || !password) {
         req.flash('error', 'All fields are required.');
         return res.redirect('/login');
@@ -132,7 +127,6 @@ app.post('/login', (req, res) => {
             req.flash('error', 'An error occurred during login. Please try again.');
             return res.redirect('/login');
         }
- 
         if (results.length > 0) {
             // Successful login
             req.session.user = results[0];           
@@ -146,7 +140,6 @@ app.post('/login', (req, res) => {
     });
 });
  
-
 app.get('/dashboard', checkAuthenticated, (req, res) => {
     res.render('dashboard', { user: req.session.user });
 });
@@ -162,38 +155,42 @@ app.get('/logout', (req, res) => {
  
 // Menu 
 app.get('/menu', (req,res) => {
-    const sql = 'SELECT idmenuItems,name,image,quantity,price,category from menuItems';
-    db.query(sql, (error, results) => {
+    const category = req.query.category;
+    let sql = 'SELECT idmenuItems,name,image,quantity,price,category from menuItems';
+    let params = [];
+
+    if (category && category.trim() !== '') {
+        sql += ' WHERE category LIKE ?';
+        params.push('%' + category + '%');
+    }
+    
+    db.query(sql,params, (error, results) => {
         if (error) {
             console.error('Error fetching menu items:' ,error);
             return res.status(500).send('Error fetching menu items');
-            
             }
-        res.render('menu', { food: results,
-            user: req.session.user}
-            
-        ); 
+        res.render('menu', { 
+            food: results,
+            user: req.session.user,
+            category: category
+        }); 
     });
-         
 });
  
 // Inventory
-app.get('/inventory', (req,res) => {
-    const sql = 'SELECT idmenuItems,name,image,quantity,price,category from menuItems';
+app.get('/inventory', checkAuthenticated, checkAdmin, (req, res) => {
+    const sql = 'SELECT idmenuItems, name, image, quantity, price, category FROM menuItems';
     db.query(sql, (error, results) => {
         if (error) {
-            console.error('Error fetching menu items:' ,error);
+            console.error('Error fetching menu items:', error);
             return res.status(500).send('Error fetching menu items');
-            
-            }
-        res.render('inventory', { food: results,
-            user: req.session.user}
-            
-        ); 
+        }
+        res.render('inventory', {
+            food: results,
+            user: req.session.user
+        });
     });
-         
 });
- 
 
 // View each menu item by id
 app.get('/food/:id', (req, res) => {
@@ -203,14 +200,16 @@ app.get('/food/:id', (req, res) => {
         if (error) {
             console.error('Error fetching menu items:' ,error);
             return res.status(500).send('Error fetching menu items');
-            
             }
         res.render('food', { food: results[0],
             user: req.session.user}
-            
         ); 
     }); 
-         
+});
+
+app.get('/cart', checkAuthenticated, (req, res) => {
+    const cart = req.session.cart || [];
+    res.render('cart', { cart, user: req.session.user });
 });
 
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
@@ -222,7 +221,6 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
             console.error('Error fetching menu item for cart:', error); 
             throw error; 
         }
-
         if (results.length > 0) {
             const menuItems = results[0];
 
@@ -244,7 +242,6 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
                     image: menuItems.image
                 });
             }
-
             res.redirect('/cart');
             } else {
                 res.status(404).send("Menu not found");
@@ -252,157 +249,96 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
         });
 });
 
-app.get('/cart', checkAuthenticated, (req, res) => {
-    const cart = req.session.cart || [];
-    res.render('cart', { cart, user: req.session.user });
+app.post('/deleteCart/:idmenuItems', (req, res) => {
+    const itemId = req.params.idmenuItems;
+    req.session.cart = req.session.cart.filter(item => item.idmenuItems != itemId);
+    res.redirect('/cart');
 });
 
-
 app.post('/placeOrder', async (req, res) => {
-    let rawCartItems = req.body.cartItems;
-    let cartItemsData = [];
-    let connection;
-
-    try {
-        // Step 1: Parse and validate raw cart data from the request body
-        if (!rawCartItems || (Array.isArray(rawCartItems) && rawCartItems.length === 0)) {
-            req.flash('error', 'Your cart is empty. Please add items before placing an order.');
-            return res.redirect('/cart');
-        }
-
-        // Ensure rawCartItems is an array for consistent processing
-        if (!Array.isArray(rawCartItems)) {
-            rawCartItems = [rawCartItems]; // Convert single item to an array
-        }
-
-        for (const itemString of rawCartItems) {
-            if (typeof itemString !== 'string' || itemString.trim() === '') {
-                continue;
-            }
-            cartItemsData.push(JSON.parse(itemString));
-        }
-
-        if (cartItemsData.length === 0) {
-            req.flash('error', 'No valid items found in your cart after processing.');
-            return res.redirect('/cart');
-        }
-
-        const userId = req.session.user ? req.session.user.iduser : null;
-        let totalAmount = 0;
-
-        connection = await db.promise().getConnection();
-        await connection.beginTransaction();
-
-        // Step 3: Validate each cart item against the database and calculate total
-        const validatedCartItems = [];
-        for (const item of cartItemsData) {
-            const [productRows] = await connection.execute(
-                'SELECT idmenuItems, name, price, image FROM menuItems WHERE idmenuItems = ?',
-                [item.idmenuitems]
-            );
-
-            if (productRows.length === 0) {
-                throw new Error(`Product with ID ${item.idmenuitems} not found in menu.`);
-            }
-
-            const product = productRows[0];
-            const quantity = parseInt(item.quantity, 10);
-
-            if (isNaN(quantity) || quantity <= 0) {
-                throw new Error(`Invalid quantity for product ${product.name}.`);
-            }
-
-            validatedCartItems.push({
-                idmenuItems: product.idmenuItems,
-                name: product.name,
-                image: product.image,
-                quantity: quantity,
-                price: product.price // Use database price for total and storage
-            });
-            totalAmount += quantity * product.price;
-        }
-
-        // Step 4: Insert into `orders` table
-        const insertOrderSql = `
-            INSERT INTO orders (iduser, total_amount, order_date, status)
-            VALUES (?, ?, NOW(), 'pending')
-        `;
-        const [orderResult] = await connection.execute(insertOrderSql, [userId, totalAmount]);
-        const orderId = orderResult.insertId;
-
-        // Step 5: Insert each item into `orderItems` table
-        // REMINDER: Ensure 'price_at_time_of_order' column exists in your orderItems table.
-        const insertOrderItemSql = `
-            INSERT INTO orderItems (idorder, idmenuItems, name, image, quantity)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-
-        for (const item of validatedCartItems) {
-            await connection.execute(insertOrderItemSql, [
-                orderId,
-                item.idmenuItems,
-                item.name,
-                item.image,
-                item.quantity,
-                item.price
-            ]);
-        }
-
-        await connection.commit();
-        req.session.cart = [];
-        req.flash('success', 'Your order has been placed successfully!');
-        res.redirect(`/orderConfirmation/${orderId}`);
-
-    } catch (error) {
-        if (connection) {
-            await connection.rollback();
-        }
-        console.error('Error placing order:', error.message); 
-        req.flash('error', `There was an error placing your order: ${error.message}. Please try again.`);
-        res.redirect('/cart');
-    } finally {
-        if (connection) {
-            connection.release();
-        }
+  try {
+    if (!req.session.user) {
+      return res.redirect('/login');
     }
+    const body = req.body;
+    const cartItems = [];
+
+    for (let i = 0; i < 100; i++) {
+      if (!body[`idmenuItems_${i}`]) break;
+      cartItems.push({
+        idmenuItems: body[`idmenuItems_${i}`],
+        name: body[`name_${i}`],
+        price: parseFloat(body[`price_${i}`]),
+        quantity: parseInt(body[`quantity_${i}`], 10)
+      });
+    }
+
+    if (cartItems.length === 0) {
+      return res.status(400).send('Cart is empty or invalid');
+    }
+
+    let totalAmount = 0;
+    cartItems.forEach(item => {
+      totalAmount += item.price * item.quantity;
+    });
+
+    const insertOrderSql = 'INSERT INTO orders (iduser, name, total_amount, order_date) VALUES (?, ?, ?, NOW())';
+    db.query(insertOrderSql, [req.session.user.id, req.session.user.username, totalAmount,'Processing'], (err, orderResult) => {
+      if (err) {
+        console.error('Error inserting order:', err);
+        return res.status(500).send('Error placing order');
+      }
+      const orderId = orderResult.insertId;
+      const insertItemsSql = 'INSERT INTO orderItems (idorder, idmenuItems, quantity, price) VALUES ?';
+      const itemsData = cartItems.map(item => [
+        orderId,
+        item.idmenuItems,
+        item.quantity,
+        item.price
+      ]);
+
+      db.query(insertItemsSql, [itemsData], (err2) => {
+        if (err2) {
+          console.error('Error inserting order items:', err2);
+          return res.status(500).send('Error saving order items');
+        }
+
+        req.session.cart = []; // clear cart
+        res.redirect(`/orderConfirmation?idorder=${orderId}`);
+      });
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 });
 
 //Order Confirmation
-app.get('/orderConfirmation/:idorder', checkAuthenticated, async (req, res) => {
-    const idorder = req.params.idorder;
-    const iduser = req.session.user ? req.session.user.iduser : null;
+app.get('/orderConfirmation', async (req, res) => {
+  const orderId = req.query.idorder;
+  const dbPromise = db.promise();
 
-    let connection;
-    try {
-        connection = await db.promise().getConnection();
+  try {
+    const [orderRows] = await dbPromise.query(
+      `SELECT * FROM orders WHERE idorder = ?`,
+      [orderId]
+    );
 
-        const [orderRows] = await connection.execute('SELECT * FROM orders WHERE idorder = ? AND iduser = ?', [idorder, iduser]);
-        const order = orderRows[0];
+    const [itemRows] = await dbPromise.query(
+        `SELECT oi.*, m.name AS foodName FROM orderItems oi 
+        JOIN menuItems m ON oi.idmenuItems = m.idmenuItems WHERE oi.idorder = ?`,
+        [orderId]
+    );
 
-        if (!order) {
-            req.flash('error', 'Order not found or you do not have permission to view it.');
-            return res.redirect('/dashboard');
-        }
-
-        const [itemRows] = await connection.execute(
-            `SELECT oi.idorderItems, oi.idorder, oi.idmenuItems, oi.name AS product_name, oi.image AS image_url, oi.quantity
-             FROM orderItems oi WHERE oi.idorder = ?`,
-            [idorder]
-        );
-        order.items = itemRows;
-
-        res.render('orderConfirmation', {
-            user: req.session.user,
-            order: order,
-            successMessages: req.flash('success'),
-            errorMessages: req.flash('error')
-        });
-    } catch (error) {
-        console.error('Error fetching order confirmation:', error);
-        req.flash('error', 'Could not retrieve order details. Please try again later.');
-        res.redirect('/dashboard');
-    } finally {
-        if (connection) connection.release();
+    res.render('orderConfirmation', {
+      order: orderRows[0],
+      items: itemRows,
+      user: req.session.user
+    });
+    } catch (err) {
+        console.error('Error loading confirmation:', err);
+        res.status(500).send('Unable to load confirmation page');
     }
 });
 
@@ -441,12 +377,30 @@ app.get('/editInventory/:id',(req,res) => {
         }
 
         if (results.length > 0 ) {
-            res.render('editInventory', { menuItems: results[0] });
+            res.render('editInventory', { menuItems: results[0],user: req.session.user });
         } else {
             res.status(404).send('Order not found');
         }
     });
 });
+
+app.post('/editInventory/:id',upload.single('image'), (req,res) => {
+    const idmenuItems = req.params.id;
+    const {name, Image, quantity , price, category} = req.body;
+    
+    let image = req.body.currentImageName;
+    if(req.file) image = req.file.filename;
+    
+    const sql = 'Update menuItems SET name =?,image = ?, quantity =? , price = ?, category = ?  WHERE idmenuItems = ?';
+    db.query(sql, [ name, image, quantity, price, category,idmenuItems], (error, result) => {
+        if (error){
+            console.error('Update error:', error);
+            return res.status(500).send('Error updating food item');
+        }else{
+            res.redirect('/inventory');
+       }
+    });
+}); 
 
 app.get('/deleteInventory/:id', (req,res) => {
     const idmenuItems = req.params.id;
@@ -456,11 +410,81 @@ app.get('/deleteInventory/:id', (req,res) => {
             console.error("Error deleting inventory:", error);
             res.status(500).send('Error deleting inventory');
         } else {
-            res.redirect('/');
+            res.redirect('/inventory');
         }
     }); 
 });
 
+app.get('/payment', checkAuthenticated, (req, res) => {
+    const orderId = req.query.idorder;
+
+    if (!orderId) {
+        req.flash('error', 'Order ID is required.');
+        return res.redirect('/menu');
+    }
+
+    const sql = 'SELECT total_amount FROM orders WHERE idorder = ?';
+
+    db.query(sql, [orderId], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            req.flash('error', 'An error occurred while fetching the order.');
+            return res.redirect('/menu');
+        }
+
+        if (results.length === 0) {
+            req.flash('error', 'Order not found.');
+            return res.redirect('/menu');
+        }
+
+        const totalAmount = results[0].total_amount;
+
+        res.render('payment', {
+            user: req.session.user,
+            total: totalAmount,
+            orderId: orderId,
+            messages: req.flash('error')
+        });
+    });
+});
+
+
+app.post('/processPayment', checkAuthenticated, (req, res) => {
+    const { cardNumber, expiryDate, cvv, idorder } = req.body;
+
+    if (!cardNumber || !expiryDate || !cvv || !idorder) {
+        req.flash('error', 'All payment fields are required.');
+        return res.redirect(`/payment?idorder=${idorder}`);
+    }
+
+    const sql = 'SELECT total_amount FROM orders WHERE idorder = ?';
+    db.query(sql, [idorder], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            req.flash('error', 'Failed to fetch total amount.');
+            return res.redirect(`/payment?idorder=${idorder}`);
+        }
+
+        if (results.length === 0) {
+            req.flash('error', 'Order not found.');
+            return res.redirect(`/payment?idorder=${idorder}`);
+        }
+
+        const totalAmount = results[0].total_amount;
+        req.session.cart = [];
+
+        res.render('paymentSuccess', {
+            user: req.session.user,
+            amount: totalAmount,
+            orderId: idorder
+        });
+    });
+    const updateStatusSql = 'UPDATE orders SET status = ? WHERE idorder = ?';
+    db.query(updateStatusSql, ['Paid', idorder], (err3) => {
+    if (err3) 
+        console.error('Error updating order status:', err3);
+    });
+});
 
 // Starting the server
 const PORT = 3000;
