@@ -1,21 +1,29 @@
-<!-- menu.ejs -->
-
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard</title>
+    <title>Menu</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
         .table-img {
-            width: 100px; 
-            height: 100px; 
-            object-fit: cover; 
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
         }
         .table td {
             vertical-align: middle;
+        }
+        .heart-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #ccc; 
+            cursor: pointer;
+        }
+        .heart-button.favourited .fa-heart {
+            color: red;
         }
     </style>
 </head>
@@ -40,6 +48,9 @@
             <li class="nav-item">
               <a class="nav-link active" aria-current="page" href="/menu">Menu</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/favourites">Favourites <i class="fas fa-heart"></i></a>
+            </li>
             <% } %>
             <li class="nav-item">
               <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt me-1"></i>Logout</a>
@@ -54,7 +65,7 @@
     <br>
     <form class="mb-4" method="GET" action="/menu">
       <div class="input-group">
-        <input type="text" class="form-control" name="category" placeholder="Seach by category..." value="<%= typeof category !== 'undefined' ? category : '' %>">
+        <input type="text" class="form-control" name="category" placeholder="Search by category..." value="<%= typeof category !== 'undefined' ? category : '' %>">
         <button type="submit" class="btn btn-success">Search</button>
       </div>
     </form>
@@ -66,41 +77,54 @@
             <th width="100">Image</th>
             <th width="100">Price</th>
             <th width="100">Category</th>
-             <th width="100">Quantity</th>
-            <th width="50">Add</th>
+            <th width="100">Quantity</th>
+            <th width="100">Action</th>
           </tr>
       </thead>
-     <tbody>
+      <tbody>
       <% if (food && food.length > 0) { %>
         <% for (let i = 0; i < food.length; i++) { %>
           <tr>
             <td><a href="/food/<%= food[i].idmenuItems %>" ><%= food[i].name %> </a></td>
-            <!-- <td><button class="heart-button"><i class="fa fa-heart"></i></button></td> -->
-            <td><img src="/Images/<%= food[i].image %>"  class="table-img" width="100"></td>
+            <td>
+                <% if (food[i].isFavourited) { %>
+                    <form action="/removefavourite/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                        <button type="submit" class="heart-button favourited">
+                            <i class="fa fa-heart"></i>
+                        </button>
+                    </form>
+                <% } else { %>
+                    <form action="/addfavourites/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                        <button type="submit" class="heart-button">
+                            <i class="fa fa-heart"></i>
+                        </button>
+                    </form>
+                <% } %>
+            </td>
+            <td><img src="/Images/<%= food[i].image %>" class="table-img" width="100"></td>
             <td>$<%= food[i].price %></td>
             <td><%= food[i].category %></td>
+            <td> 
+                <form action="/updateQuantity/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                    <input type="hidden" name="action" value="decrease">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
+                </form>
+                <form action="/updateQuantity/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                    <input type="hidden" name="action" value="increase">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
+                </form>
+            </td>
             <td>
-              <form action="/increaseQuantity/<%= food.IdmenuItems %>" method="POST">
-              <%= food.quantity %>
-                <button type="submit">+</button>
-              <form action="/decreaseQuantity/<%= food.IdmenuItems %>" method="POST">
-              <%= food.quantity %>
-                <button type="submit">-</button>
-              </form>
-          </td>
-          <td>
-          <form action="/add-to-cart/<%= food[i].idmenuItems%>" method="POST">
-                  <input type="hidden" name="quantity" id="quantity-<%= food[i]. idmenuItems %>" value="1">
-                  <button type="submit" class="btn btn-primary mt-3">Buy</button>
-          </form>
-        </td>
-      </tr>
-      <% } %>
+            <form action="/add-to-cart/<%= food[i].idmenuItems%>" method="POST">
+              <button type="submit" class="btn btn-primary mt-3">Add to Cart</button>
+            </form>
+            </td>
+          </tr>
+        <% } %>
       <% } else { %>
-        <tr><td colspan="6">No food items available.</td></tr>
+        <tr><td colspan="7">No food items available.</td></tr>
       <% } %>
-     </tbody>
+      </tbody>
     </table>
   </div>
 </body>
-</html>
