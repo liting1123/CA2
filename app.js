@@ -156,41 +156,68 @@ app.get('/logout', (req, res) => {
 app.get('/menu', checkAuthenticated, async (req, res) => {
     try {
         const userId = req.session.user.id;
-        const category = req.query.category; 
+        const selectedCategory = req.query.category; 
+        const searchName = req.query.name; 
 
-        let query = 'SELECT * FROM menuItems';
-        const queryParams = [];
-
-        if (category) {
-            query += ' WHERE category LIKE ?';
-            queryParams.push(`%${category}%`);
-        }
-
-        db.query(query, queryParams, (err, foodItems) => {
+        //Searchbar
+        db.query('SELECT DISTINCT category FROM menuItems ORDER BY category', (err, categoryResults) => {
             if (err) {
-                console.error('Error fetching menu items:', err);
-                return res.status(500).send('Error loading menu.');
+                console.error('Error fetching categories:', err);
+                return res.status(500).send('Error loading categories for menu.');
+            }
+            const categories = categoryResults.map(row => row.category);
+
+            let query = 'SELECT * FROM menuItems';
+            const queryParams = [];
+            const conditions = [];
+
+            if (selectedCategory && selectedCategory !== '') {
+                conditions.push('category = ?');
+                queryParams.push(selectedCategory);
             }
 
-            db.query('SELECT idmenuItems FROM user_favourite WHERE iduser = ?', [userId], (favErr, favResults) => {
-                if (favErr) {
-                    console.error('Error fetching user favourites:', favErr);
-                    return res.status(500).send('Error loading favourites.');
+            if (searchName) {
+                conditions.push('name LIKE ?');
+                queryParams.push(`%${searchName}%`);
+            }
+
+            if (conditions.length > 0) {
+                query += ' WHERE ' + conditions.join(' AND ');
+            }
+
+            db.query(query, queryParams, (err, foodItems) => {
+                if (err) {
+                    console.error('Error fetching menu items:', err);
+                    return res.status(500).send('Error loading menu items.');
                 }
 
-                const favouriteItemIds = new Set(favResults.map(fav => fav.idmenuItems));
-                const foodWithFavStatus = foodItems.map(item => ({
-                    ...item,
-                    isFavourited: favouriteItemIds.has(item.idmenuItems)
-                }));
-                
-                res.render('menu', { 
-                    food: foodWithFavStatus, 
-                    user: req.session.user, 
-                    category: category,
+                //Fetch favourite items
+                db.query('SELECT idmenuItems FROM user_favourite WHERE iduser = ?', [userId], (favErr, favResults) => {
+                    if (favErr) {
+                        console.error('Error fetching user favourites:', favErr);
+                        return res.status(500).send('Error loading favourites for menu.');
+                    }
+
+                    const favouriteItemIds = new Set(favResults.map(fav => fav.idmenuItems));
+
+                    //Add isFavourited flag to food items
+                    const foodWithFavStatus = foodItems.map(item => ({
+                        ...item,
+                        isFavourited: favouriteItemIds.has(item.idmenuItems)
+                    }));
+                    
+                    //Render the menu page with all necessary data
+                    res.render('menu', { 
+                        food: foodWithFavStatus, 
+                        user: req.session.user, 
+                        selectedCategory: selectedCategory,
+                        searchName: searchName,           
+                        categories: categories,            
+                    });
                 });
             });
         });
+
     } catch (error) {
         console.error('Error in /menu route:', error);
         res.status(500).send('Server error.');

@@ -20,7 +20,10 @@
             border: none;
             font-size: 1.5rem;
             color: #ccc; 
-            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin: 0;
         }
         .heart-button.favourited .fa-heart {
             color: red;
@@ -60,71 +63,91 @@
       </div>
     </nav>
     <div class="container mt-2">
-    <br>
-    <div class="text-center"><h2>Menu</h2></div>
-    <br>
-    <form class="mb-4" method="GET" action="/menu">
-      <div class="input-group">
-        <input type="text" class="form-control" name="category" placeholder="Search by category..." value="<%= typeof category !== 'undefined' ? category : '' %>">
-        <button type="submit" class="btn btn-success">Search</button>
-      </div>
-    </form>
-    <table class="table table-hover small text-center">
-      <thead>
-          <tr>
-            <th width="100">Name</th>
-            <th width="100">Favourite</th>
-            <th width="100">Image</th>
-            <th width="100">Price</th>
-            <th width="100">Category</th>
-            <th width="100">Quantity</th>
-            <th width="100">Action</th>
-          </tr>
-      </thead>
-      <tbody>
-      <% if (food && food.length > 0) { %>
-        <% for (let i = 0; i < food.length; i++) { %>
-          <tr>
-            <td><a href="/food/<%= food[i].idmenuItems %>" ><%= food[i].name %> </a></td>
-            <td>
-                <% if (food[i].isFavourited) { %>
-                    <form action="/removefavourite/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
-                        <button type="submit" class="heart-button favourited">
-                            <i class="fa fa-heart"></i>
-                        </button>
-                    </form>
+        <br>
+        <div class="text-center"><h2>Menu</h2></div>
+        <br>
+        <form class="mb-4" method="GET" action="/menu" id="menuSearchForm">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="nameSearch" class="form-label visually-hidden">Search by name</label>
+                    <div class="input-group"> 
+                      <input type="text" class="form-control" id="nameSearch" name="name" placeholder="Search by name..." value="<%= typeof searchName !== 'undefined' ? searchName : '' %>">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="categorySelect" class="form-label visually-hidden">Search by category</label>
+                    <div class="input-group"> <select class="form-select" id="categorySelect" name="category">
+                            <option value="">All Categories</option>
+                            <% if (categories && categories.length > 0) { %>
+                                <% categories.forEach(cat => { %>
+                                    <option value="<%= cat %>" <%= typeof selectedCategory !== 'undefined' && selectedCategory === cat ? 'selected' : '' %>>
+                                        <%= cat %>
+                                    </option>
+                                <% }); %>
+                            <% } %>
+                        </select>
+                        <button type="submit" class="btn btn-success">Search</button>
+                      </div>    
+                </div>
+            </div>
+        </form>
+        <table class="table table-hover small text-center">
+            <thead>
+                <tr>
+                    <th width="100">Name</th>
+                    <th width="100">Favourite</th>
+                    <th width="100">Image</th>
+                    <th width="100">Price</th>
+                    <th width="100">Category</th>
+                    <th width="100">Quantity</th>
+                    <th width="100">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% if (food && food.length > 0) { %>
+                    <% for (let i = 0; i < food.length; i++) { %>
+                        <tr>
+                            <td><a href="/food/<%= food[i].idmenuItems %>" ><%= food[i].name %> </a></td>
+                            <td>
+                                <% if (food[i].isFavourited) { %>
+                                    <form action="/removefavourite/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                                        <button type="submit" class="heart-button favourited">
+                                            <i class="fa fa-heart"></i>
+                                        </button>
+                                    </form>
+                                <% } else { %>
+                                    <form action="/addfavourites/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                                        <button type="submit" class="heart-button">
+                                            <i class="fa fa-heart"></i>
+                                        </button>
+                                    </form>
+                                <% } %>
+                            </td>
+                            <td><img src="/Images/<%= food[i].image %>" class="table-img" width="100"></td>
+                            <td>$<%= food[i].price %></td>
+                            <td><%= food[i].category %></td>
+                            <td> 
+                                <form action="/updateQuantity/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                                    <input type="hidden" name="action" value="decrease">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
+                                </form>
+                                <form action="/updateQuantity/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
+                                    <input type="hidden" name="action" value="increase">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
+                                </form>
+                            </td>
+                            <td>
+                            <form action="/add-to-cart/<%= food[i].idmenuItems%>" method="POST">
+                                <button type="submit" class="btn btn-primary mt-3">Add to Cart</button>
+                            </form>
+                            </td>
+                        </tr>
+                    <% } %>
                 <% } else { %>
-                    <form action="/addfavourites/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
-                        <button type="submit" class="heart-button">
-                            <i class="fa fa-heart"></i>
-                        </button>
-                    </form>
+                    <tr><td colspan="7">No food items available.</td></tr>
                 <% } %>
-            </td>
-            <td><img src="/Images/<%= food[i].image %>" class="table-img" width="100"></td>
-            <td>$<%= food[i].price %></td>
-            <td><%= food[i].category %></td>
-            <td> 
-                <form action="/updateQuantity/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
-                    <input type="hidden" name="action" value="decrease">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">-</button>
-                </form>
-                <form action="/updateQuantity/<%= food[i].idmenuItems %>" method="POST" style="display:inline;">
-                    <input type="hidden" name="action" value="increase">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">+</button>
-                </form>
-            </td>
-            <td>
-            <form action="/add-to-cart/<%= food[i].idmenuItems%>" method="POST">
-              <button type="submit" class="btn btn-primary mt-3">Add to Cart</button>
-            </form>
-            </td>
-          </tr>
-        <% } %>
-      <% } else { %>
-        <tr><td colspan="7">No food items available.</td></tr>
-      <% } %>
-      </tbody>
-    </table>
-  </div>
-</body>
+            </tbody>
+        </table>
+    </div>
+    </body>
+</html>
